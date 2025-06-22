@@ -93,7 +93,7 @@ class TavusService {
           participant_absent_timeout: 300,
           enable_recording: false,
           apply_greenscreen: false,
-          language: 'en', // Use language code
+          language: 'English', // Changed from 'en' to 'English'
           ...request.properties
         }
       };
