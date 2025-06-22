@@ -56,7 +56,9 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
         setIsVideoLoaded(true);
       } catch (err) {
         console.error('Error loading video stream:', err);
-        setVideoError('Failed to load video stream');
+        // Capture specific error message from the browser
+        const errorMessage = err instanceof Error ? err.message : 'Unknown video loading error';
+        setVideoError(`Failed to load video stream: ${errorMessage}`);
       }
     };
 
@@ -77,6 +79,24 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
       video.muted = !isAudioEnabled;
     }
   }, [isAudioEnabled]);
+
+  // Helper function to get detailed video error message
+  const getVideoErrorMessage = (videoElement: HTMLVideoElement): string => {
+    if (!videoElement.error) return 'Unknown video error';
+    
+    switch (videoElement.error.code) {
+      case MediaError.MEDIA_ERR_ABORTED:
+        return 'Video playback was aborted';
+      case MediaError.MEDIA_ERR_NETWORK:
+        return 'Network error occurred while loading video';
+      case MediaError.MEDIA_ERR_DECODE:
+        return 'Video format is not supported or corrupted';
+      case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+        return 'Video source format is not supported';
+      default:
+        return `Video error (code: ${videoElement.error.code})`;
+    }
+  };
 
   const renderVideoContent = () => {
     if (error) {
@@ -163,7 +183,11 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
         autoPlay
         playsInline
         onLoadedData={() => setIsVideoLoaded(true)}
-        onError={() => setVideoError('Video playback error')}
+        onError={(e) => {
+          const video = e.currentTarget;
+          const detailedError = getVideoErrorMessage(video);
+          setVideoError(detailedError);
+        }}
       />
     );
   };
