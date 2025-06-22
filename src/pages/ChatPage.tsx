@@ -35,8 +35,7 @@ const ChatPage = () => {
   const [connectionError, setConnectionError] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Initialize Tavus conversation with a more generic replica ID
-  // Note: Replace this with your actual replica ID from the Tavus dashboard
+  // Initialize Tavus conversation with environment variables
   const {
     conversation,
     messages: tavusMessages,
