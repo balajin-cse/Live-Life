@@ -11,7 +11,8 @@ import {
   Zap,
   Phone,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react'
 import TavusVideoAgent from '../components/TavusVideoAgent'
 import ChatMessage from '../components/ChatMessage'
@@ -70,18 +71,7 @@ const ChatPage = () => {
     },
     onError: (error) => {
       console.error('Tavus conversation error:', error)
-      let errorMessage = error.message || 'An error occurred with the conversation'
-      
-      // Provide more specific error messages based on common issues
-      if (error.message?.includes('400')) {
-        errorMessage = 'Invalid replica ID or API configuration. Please check your Tavus dashboard for the correct replica ID.'
-      } else if (error.message?.includes('401')) {
-        errorMessage = 'Invalid API key. Please check your VITE_TAVUS_API_KEY in the .env file.'
-      } else if (error.message?.includes('404')) {
-        errorMessage = 'Replica not found. Please verify the replica ID exists in your Tavus account.'
-      }
-      
-      setConnectionError(errorMessage)
+      setConnectionError(error)
     }
   })
 
@@ -103,14 +93,7 @@ const ChatPage = () => {
     try {
       await startConversation()
     } catch (error: any) {
-      let errorMessage = error.message || 'Failed to start conversation'
-      
-      // Provide more specific error messages
-      if (error.message?.includes('400')) {
-        errorMessage = 'Invalid replica ID. Please check that your replica ID exists in your Tavus dashboard and update the VITE_TAVUS_REPLICA_ID environment variable.'
-      }
-      
-      setConnectionError(errorMessage)
+      setConnectionError(error.message || 'Failed to start conversation')
     }
   }
 
@@ -233,11 +216,19 @@ const ChatPage = () => {
               {/* Configuration Warning */}
               {!isConfigured && (
                 <div className="mt-4 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <AlertCircle className="h-4 w-4 text-yellow-400" />
-                    <p className="text-yellow-300 text-sm">
-                      Tavus API not configured. Please set VITE_TAVUS_API_KEY and VITE_TAVUS_REPLICA_ID in your environment.
-                    </p>
+                  <div className="flex items-start space-x-2">
+                    <AlertCircle className="h-4 w-4 text-yellow-400 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-yellow-300 text-sm mb-2">
+                        Tavus API not configured. Please set up your credentials:
+                      </p>
+                      <div className="text-yellow-200 text-xs space-y-1">
+                        <p>1. Go to <a href="https://tavusapi.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline hover:text-yellow-100 inline-flex items-center gap-1">Tavus Dashboard <ExternalLink className="h-3 w-3" /></a></p>
+                        <p>2. Get your API key and replica ID</p>
+                        <p>3. Update your .env file with the correct values</p>
+                        <p>4. Restart the development server</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -249,21 +240,27 @@ const ChatPage = () => {
                     <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
                     <div className="flex-1">
                       <p className="text-red-300 text-sm mb-2">{connectionError}</p>
-                      {connectionError.includes('replica ID') && (
+                      {(connectionError.includes('replica ID') || connectionError.includes('placeholder')) && (
                         <div className="text-red-200 text-xs space-y-1">
                           <p>To fix this:</p>
                           <ol className="list-decimal list-inside space-y-1 ml-2">
-                            <li>Go to your Tavus dashboard at https://tavusapi.com/dashboard</li>
+                            <li>Go to <a href="https://tavusapi.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline hover:text-red-100 inline-flex items-center gap-1">Tavus Dashboard <ExternalLink className="h-3 w-3" /></a></li>
                             <li>Find your replica ID in the replicas section</li>
-                            <li>Add VITE_TAVUS_REPLICA_ID=your-replica-id to your .env file</li>
+                            <li>Update VITE_TAVUS_REPLICA_ID in your .env file</li>
                             <li>Restart the development server</li>
                           </ol>
                         </div>
                       )}
-                      {connectionError.includes('Invalid Tavus API key') && (
-                        <p className="text-red-200 text-xs">
-                          Please check your API key in the .env file. You can get a valid API key from the Tavus dashboard.
-                        </p>
+                      {(connectionError.includes('API key') || connectionError.includes('placeholder')) && (
+                        <div className="text-red-200 text-xs space-y-1">
+                          <p>To fix this:</p>
+                          <ol className="list-decimal list-inside space-y-1 ml-2">
+                            <li>Go to <a href="https://tavusapi.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline hover:text-red-100 inline-flex items-center gap-1">Tavus Dashboard <ExternalLink className="h-3 w-3" /></a></li>
+                            <li>Get your API key from the API section</li>
+                            <li>Update VITE_TAVUS_API_KEY in your .env file</li>
+                            <li>Restart the development server</li>
+                          </ol>
+                        </div>
                       )}
                       <button
                         onClick={handleRetry}

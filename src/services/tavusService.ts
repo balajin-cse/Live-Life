@@ -69,6 +69,15 @@ class TavusService {
       throw new Error('Tavus API key is not configured. Please set VITE_TAVUS_API_KEY in your environment variables.');
     }
 
+    // Check for placeholder values
+    if (this.apiKey.includes('your_actual_tavus_api_key_here') || this.apiKey.includes('fb72ce32593f4a149618d2a77ed6e233')) {
+      throw new Error('Please replace the placeholder API key in your .env file with your actual Tavus API key from https://tavusapi.com/dashboard');
+    }
+
+    if (request.replica_id.includes('your_actual_replica_id_here') || request.replica_id === 'r9d30b0e55ac') {
+      throw new Error('Please replace the placeholder replica ID in your .env file with your actual replica ID from your Tavus dashboard.');
+    }
+
     try {
       const response = await axios.post(
         `${this.baseURL}/v2/conversations`,
@@ -79,12 +88,21 @@ class TavusService {
     } catch (error: any) {
       console.error('Error creating Tavus conversation:', error);
       
-      if (error.response?.status === 401) {
+      if (error.response?.status === 400) {
+        const errorMessage = error.response?.data?.message || 'Bad request';
+        if (errorMessage.toLowerCase().includes('replica')) {
+          throw new Error('Invalid replica ID. Please check that your replica ID exists in your Tavus dashboard and update the VITE_TAVUS_REPLICA_ID environment variable.');
+        } else if (errorMessage.toLowerCase().includes('api key') || errorMessage.toLowerCase().includes('authentication')) {
+          throw new Error('Invalid API key. Please check your VITE_TAVUS_API_KEY in the .env file.');
+        } else {
+          throw new Error(`Tavus API error (400): ${errorMessage}. Please verify your API key and replica ID are correct.`);
+        }
+      } else if (error.response?.status === 401) {
         throw new Error('Invalid Tavus API key. Please check your VITE_TAVUS_API_KEY in the .env file.');
       } else if (error.response?.status === 403) {
         throw new Error('Access forbidden. Please check your Tavus API key permissions.');
       } else if (error.response?.status === 404) {
-        throw new Error('Tavus API endpoint not found. The API may have changed.');
+        throw new Error('Replica not found. Please verify the replica ID exists in your Tavus account.');
       } else if (error.response?.data?.message) {
         throw new Error(`Tavus API error: ${error.response.data.message}`);
       } else {
@@ -198,7 +216,9 @@ class TavusService {
 
   // Check if service is properly configured
   isConfigured(): boolean {
-    return !!this.apiKey;
+    return !!this.apiKey && 
+           !this.apiKey.includes('your_actual_tavus_api_key_here') && 
+           !this.apiKey.includes('fb72ce32593f4a149618d2a77ed6e233');
   }
 
   // Test API key validity
