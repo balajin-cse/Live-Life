@@ -4,18 +4,18 @@ import {
   Send, 
   Mic, 
   MicOff, 
-  Video, 
-  VideoOff, 
   Settings,
   Heart,
   Brain,
   Smile,
-  Zap
+  Zap,
+  Phone,
+  AlertCircle
 } from 'lucide-react'
-import VideoAgent from '../components/VideoAgent'
+import TavusVideoAgent from '../components/TavusVideoAgent'
 import ChatMessage from '../components/ChatMessage'
 import MoodSelector from '../components/MoodSelector'
-import SessionControls from '../components/SessionControls'
+import { useTavusConversation } from '../hooks/useTavusConversation'
 
 interface Message {
   id: string
@@ -26,20 +26,49 @@ interface Message {
 }
 
 const ChatPage = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      type: 'ai',
-      content: "Hello! I'm here to support you on your journey to better mental wellness. How are you feeling today?",
-      timestamp: new Date(),
-    }
-  ])
   const [inputMessage, setInputMessage] = useState('')
   const [isRecording, setIsRecording] = useState(false)
-  const [isVideoEnabled, setIsVideoEnabled] = useState(true)
   const [currentMood, setCurrentMood] = useState<string>('')
-  const [isTyping, setIsTyping] = useState(false)
+  const [localMessages, setLocalMessages] = useState<Message[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Initialize Tavus conversation
+  const {
+    conversation,
+    messages: tavusMessages,
+    isLoading,
+    isConnected,
+    error,
+    isVideoEnabled,
+    isAudioEnabled,
+    startConversation,
+    sendMessage,
+    endConversation,
+    getVideoStreamUrl,
+    toggleVideo,
+    toggleAudio,
+    isConfigured,
+  } = useTavusConversation({
+    replicaId: 'wellness-companion-replica',
+    autoStart: false,
+    onMessage: (message) => {
+      // Convert Tavus message to local message format
+      const localMessage: Message = {
+        id: message.id,
+        type: message.speaker,
+        content: message.content,
+        timestamp: new Date(message.timestamp),
+      }
+      setLocalMessages(prev => {
+        // Avoid duplicates
+        if (prev.find(m => m.id === localMessage.id)) return prev
+        return [...prev, localMessage]
+      })
+    },
+    onError: (error) => {
+      console.error('Tavus conversation error:', error)
+    }
+  })
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -47,58 +76,30 @@ const ChatPage = () => {
 
   useEffect(() => {
     scrollToBottom()
-  }, [messages])
+  }, [localMessages])
 
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      type: 'user',
-      content: inputMessage,
-      timestamp: new Date(),
-      mood: currentMood
+  const handleStartConversation = async () => {
+    if (!isConfigured) {
+      alert('Tavus API is not configured. Please check your environment variables.')
+      return
     }
-
-    setMessages(prev => [...prev, userMessage])
-    setInputMessage('')
-    setIsTyping(true)
-
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'ai',
-        content: generateAIResponse(inputMessage, currentMood),
-        timestamp: new Date(),
-      }
-      setMessages(prev => [...prev, aiResponse])
-      setIsTyping(false)
-    }, 2000)
+    await startConversation()
   }
 
-  const generateAIResponse = (userInput: string, mood: string): string => {
-    const responses = {
-      happy: [
-        "I'm so glad to hear you're feeling positive! Let's explore what's bringing you joy today and how we can build on these good feelings.",
-        "Your happiness is wonderful to see! What activities or thoughts are contributing to this positive mood?",
-      ],
-      sad: [
-        "I understand you're going through a difficult time. Remember that it's okay to feel sad, and I'm here to support you through this.",
-        "Thank you for sharing how you're feeling. Let's work together to find some gentle ways to care for yourself right now.",
-      ],
-      anxious: [
-        "I hear that you're feeling anxious. Let's try some breathing exercises together, or we can talk about what's on your mind.",
-        "Anxiety can feel overwhelming, but you're not alone. Would you like to explore some grounding techniques that might help?",
-      ],
-      neutral: [
-        "I appreciate you sharing with me. Sometimes feeling neutral is exactly where we need to be. How can I best support you today?",
-        "Thank you for being here. What would be most helpful for you in this moment?",
-      ]
-    }
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || !conversation) return
 
-    const moodResponses = responses[mood as keyof typeof responses] || responses.neutral
-    return moodResponses[Math.floor(Math.random() * moodResponses.length)]
+    try {
+      await sendMessage(inputMessage, { mood: currentMood })
+      setInputMessage('')
+    } catch (error) {
+      console.error('Error sending message:', error)
+    }
+  }
+
+  const handleEndConversation = async () => {
+    await endConversation()
+    setLocalMessages([])
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -126,13 +127,80 @@ const ChatPage = () => {
             transition={{ duration: 0.6 }}
             className="sticky top-20"
           >
-            <VideoAgent isEnabled={isVideoEnabled} />
-            <SessionControls
-              isRecording={isRecording}
+            <TavusVideoAgent
+              videoStreamUrl={getVideoStreamUrl()}
               isVideoEnabled={isVideoEnabled}
-              onToggleRecording={() => setIsRecording(!isRecording)}
-              onToggleVideo={() => setIsVideoEnabled(!isVideoEnabled)}
+              isAudioEnabled={isAudioEnabled}
+              isConnected={isConnected}
+              isLoading={isLoading}
+              error={error}
+              onToggleVideo={toggleVideo}
+              onToggleAudio={toggleAudio}
             />
+            
+            {/* Session Controls */}
+            <div className="mt-4 glass-effect rounded-2xl p-4">
+              <div className="flex justify-center space-x-4">
+                {!conversation ? (
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleStartConversation}
+                    disabled={isLoading || !isConfigured}
+                    className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-3 rounded-full font-semibold transition-all duration-300 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isLoading ? 'Connecting...' : 'Start Conversation'}
+                  </motion.button>
+                ) : (
+                  <>
+                    {/* Microphone Toggle */}
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setIsRecording(!isRecording)}
+                      className={`p-3 rounded-full transition-all duration-200 ${
+                        isRecording
+                          ? 'bg-red-500 text-white animate-pulse'
+                          : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                      }`}
+                    >
+                      {isRecording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                    </motion.button>
+
+                    {/* Settings */}
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="p-3 rounded-full bg-white/10 text-gray-300 hover:bg-white/20 transition-all duration-200"
+                    >
+                      <Settings className="h-5 w-5" />
+                    </motion.button>
+
+                    {/* End Session */}
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleEndConversation}
+                      className="p-3 rounded-full bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all duration-200"
+                    >
+                      <Phone className="h-5 w-5 rotate-[135deg]" />
+                    </motion.button>
+                  </>
+                )}
+              </div>
+              
+              {/* Configuration Warning */}
+              {!isConfigured && (
+                <div className="mt-4 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <AlertCircle className="h-4 w-4 text-yellow-400" />
+                    <p className="text-yellow-300 text-sm">
+                      Tavus API not configured. Please set VITE_TAVUS_API_KEY in your environment.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </motion.div>
         </div>
 
@@ -154,14 +222,29 @@ const ChatPage = () => {
 
           {/* Messages */}
           <div className="flex-1 glass-effect rounded-2xl p-6 overflow-y-auto mb-4">
+            {localMessages.length === 0 && !conversation && (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <Heart className="h-16 w-16 text-primary-400 mx-auto mb-4" />
+                  <h3 className="text-white font-semibold text-lg mb-2">
+                    Welcome to Live Life
+                  </h3>
+                  <p className="text-gray-300 max-w-md">
+                    Start a conversation with your AI wellness companion to begin your journey 
+                    toward better mental health and wellbeing.
+                  </p>
+                </div>
+              </div>
+            )}
+            
             <div className="space-y-4">
               <AnimatePresence>
-                {messages.map((message) => (
+                {localMessages.map((message) => (
                   <ChatMessage key={message.id} message={message} />
                 ))}
               </AnimatePresence>
               
-              {isTyping && (
+              {isLoading && conversation && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -173,7 +256,7 @@ const ChatPage = () => {
                     <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
                     <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                   </div>
-                  <span className="text-sm">AI is typing...</span>
+                  <span className="text-sm">AI is responding...</span>
                 </motion.div>
               )}
             </div>
@@ -193,27 +276,17 @@ const ChatPage = () => {
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Share what's on your mind..."
-                  className="w-full bg-transparent text-white placeholder-gray-400 resize-none focus:outline-none min-h-[60px] max-h-32"
+                  placeholder={conversation ? "Share what's on your mind..." : "Start a conversation first..."}
+                  disabled={!conversation}
+                  className="w-full bg-transparent text-white placeholder-gray-400 resize-none focus:outline-none min-h-[60px] max-h-32 disabled:opacity-50"
                   rows={2}
                 />
               </div>
               
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => setIsRecording(!isRecording)}
-                  className={`p-3 rounded-full transition-all duration-200 ${
-                    isRecording
-                      ? 'bg-red-500 text-white animate-pulse'
-                      : 'bg-white/10 text-gray-300 hover:bg-white/20'
-                  }`}
-                >
-                  {isRecording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-                </button>
-                
-                <button
                   onClick={handleSendMessage}
-                  disabled={!inputMessage.trim()}
+                  disabled={!inputMessage.trim() || !conversation || isLoading}
                   className="p-3 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 text-white transition-all duration-200 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send className="h-5 w-5" />
