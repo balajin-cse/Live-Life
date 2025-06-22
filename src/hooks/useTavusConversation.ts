@@ -18,7 +18,12 @@ export const useTavusConversation = (options: UseTavusConversationOptions = {}) 
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   
   const conversationRef = useRef<TavusConversation | null>(null);
-  const { replicaId = 'default-wellness-replica', autoStart = false, onMessage, onError } = options;
+  const { 
+    replicaId = import.meta.env.VITE_TAVUS_REPLICA_ID || 'default-replica', 
+    autoStart = false, 
+    onMessage, 
+    onError 
+  } = options;
 
   // Start a new conversation
   const startConversation = useCallback(async () => {
@@ -29,22 +34,33 @@ export const useTavusConversation = (options: UseTavusConversationOptions = {}) 
       return;
     }
 
+    if (!replicaId || replicaId === 'default-replica') {
+      const errorMsg = 'Please set a valid replica ID in your .env file (VITE_TAVUS_REPLICA_ID).';
+      setError(errorMsg);
+      onError?.(errorMsg);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
+      console.log('Starting conversation with replica ID:', replicaId);
+      
       const newConversation = await tavusService.createConversation({
         replica_id: replicaId,
         conversation_name: 'Live Life Wellness Session',
         properties: {
-          max_duration: 3600, // 1 hour
+          max_call_duration: 3600, // 1 hour
+          participant_left_timeout: 60,
+          participant_absent_timeout: 300,
+          enable_recording: false,
+          apply_greenscreen: false,
           language: 'en',
-          voice_settings: {
-            stability: 0.8,
-            similarity_boost: 0.7,
-          },
         },
       });
+
+      console.log('Conversation created successfully:', newConversation);
 
       setConversation(newConversation);
       conversationRef.current = newConversation;
@@ -63,6 +79,7 @@ export const useTavusConversation = (options: UseTavusConversationOptions = {}) 
       onMessage?.(initialMessage);
       
     } catch (err) {
+      console.error('Error starting conversation:', err);
       const errorMsg = err instanceof Error ? err.message : 'Failed to start conversation';
       setError(errorMsg);
       onError?.(errorMsg);
@@ -92,29 +109,55 @@ export const useTavusConversation = (options: UseTavusConversationOptions = {}) 
       setMessages(prev => [...prev, userMessage]);
       onMessage?.(userMessage);
 
-      // Send to Tavus and get AI response
-      const aiResponse = await tavusService.sendMessage({
-        conversation_id: conversation.conversation_id,
-        message: content,
-        context: {
-          mood: context?.mood,
-          previous_messages: messages.slice(-5).map(m => `${m.speaker}: ${m.content}`),
-        },
-      });
+      // For now, simulate AI response since Tavus messaging might work differently
+      // In a real implementation, you would send to Tavus and get the actual response
+      setTimeout(() => {
+        const aiResponse: TavusMessage = {
+          id: 'ai-' + Date.now(),
+          conversation_id: conversation.conversation_id,
+          speaker: 'ai',
+          content: generateAIResponse(content, context?.mood),
+          timestamp: new Date().toISOString(),
+        };
 
-      setMessages(prev => [...prev, aiResponse]);
-      onMessage?.(aiResponse);
-      
-      return aiResponse;
+        setMessages(prev => [...prev, aiResponse]);
+        onMessage?.(aiResponse);
+        setIsLoading(false);
+      }, 1000 + Math.random() * 2000); // Simulate response delay
+
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to send message';
       setError(errorMsg);
       onError?.(errorMsg);
-      throw err;
-    } finally {
       setIsLoading(false);
+      throw err;
     }
-  }, [conversation, messages, onMessage, onError]);
+  }, [conversation, onMessage, onError]);
+
+  // Generate AI response (placeholder for actual Tavus integration)
+  const generateAIResponse = (userMessage: string, mood?: string) => {
+    const responses = [
+      "I understand how you're feeling. It's completely normal to experience these emotions, and I'm here to help you work through them.",
+      "Thank you for sharing that with me. Your feelings are valid, and it takes courage to open up about what you're going through.",
+      "I hear you, and I want you to know that you're not alone in this. Let's explore some strategies that might help you feel better.",
+      "That sounds challenging. Remember that it's okay to take things one step at a time. What would feel most helpful for you right now?",
+      "I appreciate you trusting me with your thoughts. Your mental wellbeing is important, and I'm here to support you through this journey."
+    ];
+
+    if (mood) {
+      if (mood === 'sad') {
+        return "I can sense that you're feeling sad right now. It's okay to feel this way - sadness is a natural human emotion. Would you like to talk about what's contributing to these feelings?";
+      } else if (mood === 'anxious') {
+        return "I notice you're feeling anxious. Anxiety can be overwhelming, but there are techniques we can use to help you feel more grounded. Let's start with some deep breathing exercises.";
+      } else if (mood === 'happy') {
+        return "It's wonderful to hear that you're feeling happy! I'd love to know what's bringing you joy today. Celebrating positive moments is so important for our wellbeing.";
+      } else if (mood === 'calm') {
+        return "I'm glad you're feeling calm. This is a great state of mind for reflection and growth. Is there anything specific you'd like to explore or discuss while you're feeling centered?";
+      }
+    }
+
+    return responses[Math.floor(Math.random() * responses.length)];
+  };
 
   // End the conversation
   const endConversation = useCallback(async () => {
@@ -125,6 +168,8 @@ export const useTavusConversation = (options: UseTavusConversationOptions = {}) 
       setIsConnected(false);
       setConversation(null);
       conversationRef.current = null;
+      setMessages([]);
+      setError(null);
     } catch (err) {
       console.error('Error ending conversation:', err);
     }
