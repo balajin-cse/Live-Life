@@ -10,6 +10,7 @@ export interface TavusConversation {
   participant_count?: number;
   created_at: string;
   conversation_url?: string;
+  video_stream_url?: string;
 }
 
 export interface TavusMessage {
@@ -260,10 +261,12 @@ class TavusService {
     }
   }
 
-  // Generate video URL for conversation
+  // Generate video URL for conversation - Updated to return null if not available
   getVideoStreamUrl(conversationId: string): string | null {
-    if (!conversationId) return null;
-    return `${this.baseURL}/v2/conversations/${conversationId}/video/stream`;
+    // For now, return null since the constructed URL doesn't provide a valid video stream
+    // This will be updated when the actual Tavus video streaming endpoint is available
+    console.log('Video streaming not yet available for conversation:', conversationId);
+    return null;
   }
 
   // Check if service is properly configured

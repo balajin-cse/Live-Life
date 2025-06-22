@@ -42,13 +42,23 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
   // Handle video stream
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !videoStreamUrl || !isVideoEnabled) return;
+    if (!video || !videoStreamUrl || !isVideoEnabled) {
+      setVideoError(null);
+      setIsVideoLoaded(false);
+      return;
+    }
 
     const loadVideo = async () => {
       try {
         setVideoError(null);
         setIsVideoLoaded(false);
         
+        // Check if the URL is valid before attempting to load
+        if (!videoStreamUrl || videoStreamUrl === 'null' || videoStreamUrl === 'undefined') {
+          console.log('No valid video stream URL available');
+          return;
+        }
+
         video.src = videoStreamUrl;
         video.muted = !isAudioEnabled;
         
@@ -56,9 +66,11 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
         setIsVideoLoaded(true);
       } catch (err) {
         console.error('Error loading video stream:', err);
-        // Capture specific error message from the browser
-        const errorMessage = err instanceof Error ? err.message : 'Unknown video loading error';
-        setVideoError(`Failed to load video stream: ${errorMessage}`);
+        // Only set error if we actually tried to load a video
+        if (videoStreamUrl && videoStreamUrl !== 'null' && videoStreamUrl !== 'undefined') {
+          const errorMessage = err instanceof Error ? err.message : 'Unknown video loading error';
+          setVideoError(`Video stream not available: ${errorMessage}`);
+        }
       }
     };
 
@@ -137,58 +149,56 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
       );
     }
 
-    if (!videoStreamUrl || !isConnected) {
-      return (
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
-          {/* AI Avatar Placeholder */}
-          <div className="relative">
-            <motion.div
-              animate={{
-                scale: [1, 1.05, 1],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-              className="w-40 h-40 rounded-full bg-gradient-to-br from-primary-400 to-secondary-400 flex items-center justify-center"
-            >
-              <div className="w-32 h-32 rounded-full bg-white/20 flex items-center justify-center">
-                <div className="w-24 h-24 rounded-full bg-white/30 flex items-center justify-center">
-                  <div className="w-16 h-16 rounded-full bg-white/40"></div>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Animated Rings */}
-            <motion.div
-              animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0.2, 0.5] }}
-              transition={{ duration: 3, repeat: Infinity }}
-              className="absolute inset-0 rounded-full border-2 border-primary-400/30"
-            />
-            <motion.div
-              animate={{ scale: [1, 1.8, 1], opacity: [0.3, 0.1, 0.3] }}
-              transition={{ duration: 3, repeat: Infinity, delay: 0.5 }}
-              className="absolute inset-0 rounded-full border-2 border-secondary-400/20"
-            />
-          </div>
-        </div>
-      );
-    }
-
+    // Always show the AI avatar placeholder since video streaming is not yet available
     return (
-      <video
-        ref={videoRef}
-        className="absolute inset-0 w-full h-full object-cover"
-        autoPlay
-        playsInline
-        onLoadedData={() => setIsVideoLoaded(true)}
-        onError={(e) => {
-          const video = e.currentTarget;
-          const detailedError = getVideoErrorMessage(video);
-          setVideoError(detailedError);
-        }}
-      />
+      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
+        {/* AI Avatar Placeholder */}
+        <div className="relative">
+          <motion.div
+            animate={{
+              scale: [1, 1.05, 1],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+            className="w-40 h-40 rounded-full bg-gradient-to-br from-primary-400 to-secondary-400 flex items-center justify-center"
+          >
+            <div className="w-32 h-32 rounded-full bg-white/20 flex items-center justify-center">
+              <div className="w-24 h-24 rounded-full bg-white/30 flex items-center justify-center">
+                <div className="w-16 h-16 rounded-full bg-white/40"></div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Animated Rings */}
+          <motion.div
+            animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0.2, 0.5] }}
+            transition={{ duration: 3, repeat: Infinity }}
+            className="absolute inset-0 rounded-full border-2 border-primary-400/30"
+          />
+          <motion.div
+            animate={{ scale: [1, 1.8, 1], opacity: [0.3, 0.1, 0.3] }}
+            transition={{ duration: 3, repeat: Infinity, delay: 0.5 }}
+            className="absolute inset-0 rounded-full border-2 border-secondary-400/20"
+          />
+        </div>
+
+        {/* Hidden video element for future use */}
+        <video
+          ref={videoRef}
+          className="hidden"
+          autoPlay
+          playsInline
+          onLoadedData={() => setIsVideoLoaded(true)}
+          onError={(e) => {
+            const video = e.currentTarget;
+            const detailedError = getVideoErrorMessage(video);
+            setVideoError(detailedError);
+          }}
+        />
+      </div>
     );
   };
 
@@ -233,11 +243,13 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
           </div>
         </div>
 
-        {/* Video Error Overlay */}
-        {videoError && (
+        {/* Video Error Overlay - Only show if there was an actual video loading attempt */}
+        {videoError && videoStreamUrl && (
           <div className="absolute bottom-16 left-4 right-4">
-            <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-2">
-              <p className="text-red-300 text-xs">{videoError}</p>
+            <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-2">
+              <p className="text-yellow-300 text-xs">
+                Video streaming not yet available. Using AI avatar visualization.
+              </p>
             </div>
           </div>
         )}
