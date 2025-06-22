@@ -10,7 +10,8 @@ import {
   Smile,
   Zap,
   Phone,
-  AlertCircle
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react'
 import TavusVideoAgent from '../components/TavusVideoAgent'
 import ChatMessage from '../components/ChatMessage'
@@ -30,6 +31,7 @@ const ChatPage = () => {
   const [isRecording, setIsRecording] = useState(false)
   const [currentMood, setCurrentMood] = useState<string>('')
   const [localMessages, setLocalMessages] = useState<Message[]>([])
+  const [connectionError, setConnectionError] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Initialize Tavus conversation
@@ -67,6 +69,7 @@ const ChatPage = () => {
     },
     onError: (error) => {
       console.error('Tavus conversation error:', error)
+      setConnectionError(error.message || 'An error occurred with the conversation')
     }
   })
 
@@ -80,10 +83,16 @@ const ChatPage = () => {
 
   const handleStartConversation = async () => {
     if (!isConfigured) {
-      alert('Tavus API is not configured. Please check your environment variables.')
+      setConnectionError('Tavus API is not configured. Please check your environment variables.')
       return
     }
-    await startConversation()
+    
+    setConnectionError('')
+    try {
+      await startConversation()
+    } catch (error: any) {
+      setConnectionError(error.message || 'Failed to start conversation')
+    }
   }
 
   const handleSendMessage = async () => {
@@ -92,14 +101,22 @@ const ChatPage = () => {
     try {
       await sendMessage(inputMessage, { mood: currentMood })
       setInputMessage('')
-    } catch (error) {
+      setConnectionError('')
+    } catch (error: any) {
       console.error('Error sending message:', error)
+      setConnectionError(error.message || 'Failed to send message')
     }
   }
 
   const handleEndConversation = async () => {
-    await endConversation()
-    setLocalMessages([])
+    try {
+      await endConversation()
+      setLocalMessages([])
+      setConnectionError('')
+    } catch (error: any) {
+      console.error('Error ending conversation:', error)
+      setConnectionError(error.message || 'Failed to end conversation')
+    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -107,6 +124,11 @@ const ChatPage = () => {
       e.preventDefault()
       handleSendMessage()
     }
+  }
+
+  const handleRetry = () => {
+    setConnectionError('')
+    handleStartConversation()
   }
 
   const moods = [
@@ -197,6 +219,30 @@ const ChatPage = () => {
                     <p className="text-yellow-300 text-sm">
                       Tavus API not configured. Please set VITE_TAVUS_API_KEY in your environment.
                     </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Connection Error */}
+              {connectionError && (
+                <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
+                  <div className="flex items-start space-x-2">
+                    <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-red-300 text-sm mb-2">{connectionError}</p>
+                      {connectionError.includes('Invalid Tavus API key') && (
+                        <p className="text-red-200 text-xs">
+                          Please check your API key in the .env file. You can get a valid API key from the Tavus dashboard.
+                        </p>
+                      )}
+                      <button
+                        onClick={handleRetry}
+                        className="mt-2 flex items-center space-x-1 text-red-300 hover:text-red-200 text-xs transition-colors"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        <span>Retry</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
