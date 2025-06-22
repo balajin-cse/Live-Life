@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Camera, CameraOff, Mic, MicOff } from 'lucide-react'
+import { Camera, CameraOff, Mic } from 'lucide-react'
 
 interface VideoAgentProps {
   isEnabled: boolean
 }
 
 const VideoAgent: React.FC<VideoAgentProps> = ({ isEnabled }) => {
-  const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
 
   useEffect(() => {
