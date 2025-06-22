@@ -1,19 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   Camera, 
   CameraOff, 
-  Mic, 
-  MicOff, 
   Volume2, 
   VolumeX,
   Loader2,
   AlertCircle,
-  Settings
+  Settings,
+  ExternalLink
 } from 'lucide-react';
 
 interface TavusVideoAgentProps {
-  videoStreamUrl?: string | null;
+  conversationUrl?: string | null;
   isVideoEnabled: boolean;
   isAudioEnabled: boolean;
   isConnected: boolean;
@@ -25,7 +24,7 @@ interface TavusVideoAgentProps {
 }
 
 const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
-  videoStreamUrl,
+  conversationUrl,
   isVideoEnabled,
   isAudioEnabled,
   isConnected,
@@ -35,83 +34,28 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
   onToggleAudio,
   onSettings,
 }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [videoError, setVideoError] = useState<string | null>(null);
-  const [isVideoLoaded, setIsVideoLoaded] = useState(false);
-  const [showVideoStream, setShowVideoStream] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [showIframe, setShowIframe] = useState(false);
 
-  // Handle video stream
+  // Handle iframe loading
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !videoStreamUrl || !isVideoEnabled || !isConnected) {
-      setVideoError(null);
-      setIsVideoLoaded(false);
-      setShowVideoStream(false);
+    if (!conversationUrl || !isVideoEnabled || !isConnected) {
+      setIframeLoaded(false);
+      setShowIframe(false);
       return;
     }
 
-    const loadVideo = async () => {
-      try {
-        setVideoError(null);
-        setIsVideoLoaded(false);
-        
-        console.log('Attempting to load video stream:', videoStreamUrl);
-        
-        video.src = videoStreamUrl;
-        video.muted = !isAudioEnabled;
-        video.autoplay = true;
-        video.playsInline = true;
-        
-        // Add event listeners
-        video.onloadeddata = () => {
-          console.log('Video data loaded successfully');
-          setIsVideoLoaded(true);
-          setShowVideoStream(true);
-        };
-        
-        video.oncanplay = () => {
-          console.log('Video can start playing');
-          video.play().catch(console.error);
-        };
-        
-        video.onerror = (e) => {
-          console.error('Video error event:', e);
-          setVideoError('Video stream unavailable');
-          setShowVideoStream(false);
-        };
-        
-        // Try to load the video
-        await video.load();
-        
-      } catch (err) {
-        console.error('Error loading video stream:', err);
-        setVideoError('Video stream not available');
-        setShowVideoStream(false);
-      }
-    };
+    console.log('Loading Tavus conversation URL:', conversationUrl);
+    setShowIframe(true);
+    
+    // Add a delay to show the iframe after connection is established
+    const timer = setTimeout(() => {
+      setIframeLoaded(true);
+    }, 2000);
 
-    // Add a delay to allow the conversation to fully establish
-    const timer = setTimeout(loadVideo, 2000);
-
-    return () => {
-      clearTimeout(timer);
-      if (video) {
-        video.pause();
-        video.src = '';
-        video.onloadeddata = null;
-        video.oncanplay = null;
-        video.onerror = null;
-      }
-    };
-  }, [videoStreamUrl, isVideoEnabled, isAudioEnabled, isConnected]);
-
-  // Handle audio toggle
-  useEffect(() => {
-    const video = videoRef.current;
-    if (video) {
-      video.muted = !isAudioEnabled;
-    }
-  }, [isAudioEnabled]);
+    return () => clearTimeout(timer);
+  }, [conversationUrl, isVideoEnabled, isConnected]);
 
   const renderVideoContent = () => {
     if (error) {
@@ -152,22 +96,31 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
       );
     }
 
-    // Show video stream if available and loaded, otherwise show AI avatar
+    // Show Tavus iframe if available, otherwise show AI avatar
     return (
       <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900">
-        {/* Video Stream */}
-        {showVideoStream && isVideoLoaded && videoStreamUrl && (
-          <video
-            ref={videoRef}
-            className="absolute inset-0 w-full h-full object-cover"
-            autoPlay
-            playsInline
-            muted={!isAudioEnabled}
+        {/* Tavus Video Iframe */}
+        {showIframe && conversationUrl && isConnected && (
+          <iframe
+            ref={iframeRef}
+            src={conversationUrl}
+            className={`absolute inset-0 w-full h-full border-0 transition-opacity duration-500 ${
+              iframeLoaded ? 'opacity-100' : 'opacity-0'
+            }`}
+            allow="camera; microphone; autoplay; encrypted-media; fullscreen"
+            onLoad={() => {
+              console.log('Tavus iframe loaded successfully');
+              setIframeLoaded(true);
+            }}
+            onError={(e) => {
+              console.error('Tavus iframe error:', e);
+              setIframeLoaded(false);
+            }}
           />
         )}
 
-        {/* AI Avatar Placeholder - shown when video is not available */}
-        {(!showVideoStream || !isVideoLoaded || !videoStreamUrl) && (
+        {/* AI Avatar Placeholder - shown when iframe is not available or loading */}
+        {(!showIframe || !iframeLoaded || !conversationUrl || !isConnected) && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="relative">
               <motion.div
@@ -212,48 +165,58 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
         {renderVideoContent()}
 
         {/* Status Indicators */}
-        <div className="absolute top-4 left-4 flex items-center space-x-2">
+        <div className="absolute top-4 left-4 flex items-center space-x-2 z-10">
           <div className={`w-3 h-3 rounded-full ${
             isConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'
           }`}></div>
-          <span className="text-white text-sm font-medium">
+          <span className="text-white text-sm font-medium bg-black/50 px-2 py-1 rounded">
             {isConnected ? 'Live' : 'Disconnected'}
           </span>
         </div>
 
         {/* Controls */}
-        <div className="absolute top-4 right-4 flex items-center space-x-2">
+        <div className="absolute top-4 right-4 flex items-center space-x-2 z-10">
           {isAudioEnabled ? (
-            <Volume2 className="h-4 w-4 text-white/70" />
+            <Volume2 className="h-4 w-4 text-white/70 bg-black/50 p-1 rounded" />
           ) : (
-            <VolumeX className="h-4 w-4 text-white/70" />
+            <VolumeX className="h-4 w-4 text-white/70 bg-black/50 p-1 rounded" />
           )}
           {isVideoEnabled ? (
-            <Camera className="h-4 w-4 text-white/70" />
+            <Camera className="h-4 w-4 text-white/70 bg-black/50 p-1 rounded" />
           ) : (
-            <CameraOff className="h-4 w-4 text-white/70" />
+            <CameraOff className="h-4 w-4 text-white/70 bg-black/50 p-1 rounded" />
           )}
         </div>
 
         {/* AI Info */}
-        <div className="absolute bottom-4 left-4 right-4">
+        <div className="absolute bottom-4 left-4 right-4 z-10">
           <div className="glass-effect rounded-lg p-3">
             <h3 className="text-white font-semibold text-sm">AI Wellness Companion</h3>
             <p className="text-white/70 text-xs mt-1">
               {isLoading ? 'Connecting...' : 
-               isConnected ? (showVideoStream ? 'Video Active' : 'Ready to help') : 
+               isConnected ? (showIframe && iframeLoaded ? 'Video Active' : 'Ready to help') : 
                'Disconnected'}
             </p>
+            {conversationUrl && isConnected && (
+              <a
+                href={conversationUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center space-x-1 text-primary-300 hover:text-primary-200 text-xs mt-1 transition-colors"
+              >
+                <span>Open in new tab</span>
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
           </div>
         </div>
 
-        {/* Video Status */}
-        {isConnected && videoError && (
-          <div className="absolute bottom-16 left-4 right-4">
-            <div className="bg-yellow-500/20 border border-yellow-500/30 rounded-lg p-2">
-              <p className="text-yellow-300 text-xs">
-                {videoError} - Using AI avatar visualization
-              </p>
+        {/* Loading overlay for iframe */}
+        {showIframe && !iframeLoaded && isConnected && (
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-800/80 z-20">
+            <div className="text-center">
+              <Loader2 className="h-12 w-12 text-primary-400 mx-auto mb-3 animate-spin" />
+              <p className="text-white text-sm">Loading video interface...</p>
             </div>
           </div>
         )}

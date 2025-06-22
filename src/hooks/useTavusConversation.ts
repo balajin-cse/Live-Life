@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { tavusService, TavusConversation, TavusMessage } from '../services/tavusService';
 
 interface UseTavusConversationOptions {
-  personaId?: string; // Changed from replicaId to personaId
+  personaId?: string;
   autoStart?: boolean;
   onMessage?: (message: TavusMessage) => void;
   onError?: (error: string) => void;
+  onConversationStart?: (conversation: TavusConversation) => void;
 }
 
 export const useTavusConversation = (options: UseTavusConversationOptions = {}) => {
@@ -19,10 +20,11 @@ export const useTavusConversation = (options: UseTavusConversationOptions = {}) 
   
   const conversationRef = useRef<TavusConversation | null>(null);
   const { 
-    personaId = import.meta.env.VITE_TAVUS_PERSONA_ID || 'default-persona', // Changed from replicaId
+    personaId = import.meta.env.VITE_TAVUS_PERSONA_ID || 'default-persona',
     autoStart = false, 
     onMessage, 
-    onError 
+    onError,
+    onConversationStart
   } = options;
 
   // Start a new conversation
@@ -48,7 +50,7 @@ export const useTavusConversation = (options: UseTavusConversationOptions = {}) 
       console.log('Starting conversation with persona ID:', personaId);
       
       const newConversation = await tavusService.createConversation({
-        persona_id: personaId, // Changed from replica_id to persona_id
+        persona_id: personaId,
         conversation_name: 'Live Life Wellness Session',
         properties: {
           max_call_duration: 3600, // 1 hour
@@ -56,7 +58,7 @@ export const useTavusConversation = (options: UseTavusConversationOptions = {}) 
           participant_absent_timeout: 300,
           enable_recording: false,
           apply_greenscreen: false,
-          language: 'English', // Changed from 'en' to 'English'
+          language: 'English',
         },
       });
 
@@ -65,6 +67,9 @@ export const useTavusConversation = (options: UseTavusConversationOptions = {}) 
       setConversation(newConversation);
       conversationRef.current = newConversation;
       setIsConnected(true);
+      
+      // Notify parent component
+      onConversationStart?.(newConversation);
       
       // Add initial AI greeting
       const initialMessage: TavusMessage = {
@@ -86,7 +91,7 @@ export const useTavusConversation = (options: UseTavusConversationOptions = {}) 
     } finally {
       setIsLoading(false);
     }
-  }, [personaId, onMessage, onError]);
+  }, [personaId, onMessage, onError, onConversationStart]);
 
   // Send a message to the AI
   const sendMessage = useCallback(async (content: string, context?: { mood?: string }) => {
@@ -109,8 +114,7 @@ export const useTavusConversation = (options: UseTavusConversationOptions = {}) 
       setMessages(prev => [...prev, userMessage]);
       onMessage?.(userMessage);
 
-      // For now, simulate AI response since Tavus messaging might work differently
-      // In a real implementation, you would send to Tavus and get the actual response
+      // Simulate AI response (in real implementation, this would be handled by Tavus WebRTC)
       setTimeout(() => {
         const aiResponse: TavusMessage = {
           id: 'ai-' + Date.now(),
@@ -123,7 +127,7 @@ export const useTavusConversation = (options: UseTavusConversationOptions = {}) 
         setMessages(prev => [...prev, aiResponse]);
         onMessage?.(aiResponse);
         setIsLoading(false);
-      }, 1000 + Math.random() * 2000); // Simulate response delay
+      }, 1000 + Math.random() * 2000);
 
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to send message';
@@ -175,10 +179,10 @@ export const useTavusConversation = (options: UseTavusConversationOptions = {}) 
     }
   }, [conversation]);
 
-  // Get video stream URL
-  const getVideoStreamUrl = useCallback(() => {
+  // Get conversation URL for iframe embedding
+  const getConversationUrl = useCallback(() => {
     if (!conversation) return null;
-    return tavusService.getVideoStreamUrl(conversation.conversation_id);
+    return conversation.conversation_url;
   }, [conversation]);
 
   // Toggle video
@@ -218,7 +222,7 @@ export const useTavusConversation = (options: UseTavusConversationOptions = {}) 
     startConversation,
     sendMessage,
     endConversation,
-    getVideoStreamUrl,
+    getConversationUrl,
     toggleVideo,
     toggleAudio,
     isConfigured: tavusService.isConfigured(),

@@ -6,11 +6,10 @@ const TAVUS_API_KEY = import.meta.env.VITE_TAVUS_API_KEY;
 
 export interface TavusConversation {
   conversation_id: string;
+  conversation_url: string;
   status: 'active' | 'ended' | 'error';
   participant_count?: number;
   created_at: string;
-  conversation_url?: string;
-  video_stream_url?: string;
 }
 
 export interface TavusMessage {
@@ -19,12 +18,10 @@ export interface TavusMessage {
   speaker: 'user' | 'ai';
   content: string;
   timestamp: string;
-  audio_url?: string;
-  video_url?: string;
 }
 
 export interface CreateConversationRequest {
-  persona_id: string; // Changed from replica_id to persona_id
+  persona_id: string;
   conversation_name?: string;
   callback_url?: string;
   properties?: {
@@ -34,15 +31,6 @@ export interface CreateConversationRequest {
     enable_recording?: boolean;
     apply_greenscreen?: boolean;
     language?: string;
-  };
-}
-
-export interface SendMessageRequest {
-  conversation_id: string;
-  message: string;
-  context?: {
-    mood?: string;
-    previous_messages?: string[];
   };
 }
 
@@ -82,9 +70,8 @@ class TavusService {
     }
 
     try {
-      // Use the correct Tavus API endpoint and format for personas
       const payload = {
-        persona_id: request.persona_id, // Use persona_id instead of replica_id
+        persona_id: request.persona_id,
         conversation_name: request.conversation_name || 'Live Life Wellness Session',
         callback_url: request.callback_url,
         properties: {
@@ -93,7 +80,7 @@ class TavusService {
           participant_absent_timeout: 300,
           enable_recording: false,
           apply_greenscreen: false,
-          language: 'English', // Changed from 'en' to 'English'
+          language: 'English',
           ...request.properties
         }
       };
@@ -105,7 +92,7 @@ class TavusService {
         payload,
         { 
           headers: this.getHeaders(),
-          timeout: 30000 // 30 second timeout
+          timeout: 30000
         }
       );
 
@@ -141,70 +128,6 @@ class TavusService {
         throw new Error(`Tavus API error: ${error.response.data.message}`);
       } else {
         throw new Error('Failed to create conversation. Please check your internet connection and try again.');
-      }
-    }
-  }
-
-  // Send a message to the AI and get response
-  async sendMessage(request: SendMessageRequest): Promise<TavusMessage> {
-    if (!this.apiKey) {
-      throw new Error('Tavus API key is not configured.');
-    }
-
-    try {
-      const response = await axios.post(
-        `${this.baseURL}/v2/conversations/${request.conversation_id}/messages`,
-        {
-          message: request.message,
-          context: request.context,
-        },
-        { 
-          headers: this.getHeaders(),
-          timeout: 30000
-        }
-      );
-      return response.data;
-    } catch (error: any) {
-      console.error('Error sending message to Tavus:', error);
-      
-      if (error.response?.status === 401) {
-        throw new Error('Invalid Tavus API key.');
-      } else if (error.response?.status === 404) {
-        throw new Error('Conversation not found. Please start a new conversation.');
-      } else if (error.response?.data?.message) {
-        throw new Error(`Tavus API error: ${error.response.data.message}`);
-      } else {
-        throw new Error('Failed to send message');
-      }
-    }
-  }
-
-  // Get conversation history
-  async getConversationHistory(conversationId: string): Promise<TavusMessage[]> {
-    if (!this.apiKey) {
-      throw new Error('Tavus API key is not configured.');
-    }
-
-    try {
-      const response = await axios.get(
-        `${this.baseURL}/v2/conversations/${conversationId}/messages`,
-        { 
-          headers: this.getHeaders(),
-          timeout: 30000
-        }
-      );
-      return response.data.messages || [];
-    } catch (error: any) {
-      console.error('Error fetching conversation history:', error);
-      
-      if (error.response?.status === 401) {
-        throw new Error('Invalid Tavus API key.');
-      } else if (error.response?.status === 404) {
-        throw new Error('Conversation not found.');
-      } else if (error.response?.data?.message) {
-        throw new Error(`Tavus API error: ${error.response.data.message}`);
-      } else {
-        throw new Error('Failed to fetch conversation history');
       }
     }
   }
@@ -259,14 +182,6 @@ class TavusService {
       console.error('Error fetching Tavus personas:', error);
       return [];
     }
-  }
-
-  // Generate video URL for conversation
-  getVideoStreamUrl(conversationId: string): string | null {
-    if (!conversationId || !this.apiKey) return null;
-    
-    // Return the actual Tavus video stream URL
-    return `${this.baseURL}/v2/conversations/${conversationId}/video/stream`;
   }
 
   // Check if service is properly configured

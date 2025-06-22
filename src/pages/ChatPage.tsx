@@ -47,12 +47,12 @@ const ChatPage = () => {
     startConversation,
     sendMessage,
     endConversation,
-    getVideoStreamUrl,
+    getConversationUrl,
     toggleVideo,
     toggleAudio,
     isConfigured,
   } = useTavusConversation({
-    personaId: import.meta.env.VITE_TAVUS_PERSONA_ID || 'default-persona', // Changed from replicaId
+    personaId: import.meta.env.VITE_TAVUS_PERSONA_ID || 'default-persona',
     autoStart: false,
     onMessage: (message) => {
       // Convert Tavus message to local message format
@@ -71,6 +71,10 @@ const ChatPage = () => {
     onError: (error) => {
       console.error('Tavus conversation error:', error)
       setConnectionError(error)
+    },
+    onConversationStart: (conversation) => {
+      console.log('Conversation started:', conversation)
+      setConnectionError('')
     }
   })
 
@@ -151,7 +155,7 @@ const ChatPage = () => {
             className="sticky top-20"
           >
             <TavusVideoAgent
-              videoStreamUrl={getVideoStreamUrl()}
+              conversationUrl={getConversationUrl()}
               isVideoEnabled={isVideoEnabled}
               isAudioEnabled={isAudioEnabled}
               isConnected={isConnected}
