@@ -1,9 +1,8 @@
 import React from 'react'
 import { motion } from 'framer-motion'
-import { DivideIcon as LucideIcon } from 'lucide-react'
 
 interface FeatureCardProps {
-  icon: LucideIcon
+  icon: React.ElementType
   title: string
   description: string
   color: string

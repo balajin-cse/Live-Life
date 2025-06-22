@@ -1,11 +1,10 @@
 import React from 'react'
 import { motion } from 'framer-motion'
-import { DivideIcon as LucideIcon } from 'lucide-react'
 
 interface Mood {
   id: string
   label: string
-  icon: LucideIcon
+  icon: React.ElementType
   color: string
 }
 
