@@ -93,7 +93,7 @@ class TavusService {
           participant_absent_timeout: 300,
           enable_recording: false,
           apply_greenscreen: false,
-          language: 'English',
+          language: 'en', // Use language code instead of full name
           ...request.properties
         }
       };
@@ -261,12 +261,12 @@ class TavusService {
     }
   }
 
-  // Generate video URL for conversation - Updated to return null if not available
+  // Generate video URL for conversation
   getVideoStreamUrl(conversationId: string): string | null {
-    // For now, return null since the constructed URL doesn't provide a valid video stream
-    // This will be updated when the actual Tavus video streaming endpoint is available
-    console.log('Video streaming not yet available for conversation:', conversationId);
-    return null;
+    if (!conversationId || !this.apiKey) return null;
+    
+    // Return the actual Tavus video stream URL
+    return `${this.baseURL}/v2/conversations/${conversationId}/video/stream`;
   }
 
   // Check if service is properly configured
