@@ -34,7 +34,8 @@ const ChatPage = () => {
   const [connectionError, setConnectionError] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Initialize Tavus conversation
+  // Initialize Tavus conversation with a more generic replica ID
+  // Note: Replace this with your actual replica ID from the Tavus dashboard
   const {
     conversation,
     messages: tavusMessages,
@@ -51,7 +52,7 @@ const ChatPage = () => {
     toggleAudio,
     isConfigured,
   } = useTavusConversation({
-    replicaId: 'wellness-companion-replica',
+    replicaId: process.env.VITE_TAVUS_REPLICA_ID || 'default-replica',
     autoStart: false,
     onMessage: (message) => {
       // Convert Tavus message to local message format
@@ -69,7 +70,18 @@ const ChatPage = () => {
     },
     onError: (error) => {
       console.error('Tavus conversation error:', error)
-      setConnectionError(error.message || 'An error occurred with the conversation')
+      let errorMessage = error.message || 'An error occurred with the conversation'
+      
+      // Provide more specific error messages based on common issues
+      if (error.message?.includes('400')) {
+        errorMessage = 'Invalid replica ID or API configuration. Please check your Tavus dashboard for the correct replica ID.'
+      } else if (error.message?.includes('401')) {
+        errorMessage = 'Invalid API key. Please check your VITE_TAVUS_API_KEY in the .env file.'
+      } else if (error.message?.includes('404')) {
+        errorMessage = 'Replica not found. Please verify the replica ID exists in your Tavus account.'
+      }
+      
+      setConnectionError(errorMessage)
     }
   })
 
@@ -91,7 +103,14 @@ const ChatPage = () => {
     try {
       await startConversation()
     } catch (error: any) {
-      setConnectionError(error.message || 'Failed to start conversation')
+      let errorMessage = error.message || 'Failed to start conversation'
+      
+      // Provide more specific error messages
+      if (error.message?.includes('400')) {
+        errorMessage = 'Invalid replica ID. Please check that your replica ID exists in your Tavus dashboard and update the VITE_TAVUS_REPLICA_ID environment variable.'
+      }
+      
+      setConnectionError(errorMessage)
     }
   }
 
@@ -217,7 +236,7 @@ const ChatPage = () => {
                   <div className="flex items-center space-x-2">
                     <AlertCircle className="h-4 w-4 text-yellow-400" />
                     <p className="text-yellow-300 text-sm">
-                      Tavus API not configured. Please set VITE_TAVUS_API_KEY in your environment.
+                      Tavus API not configured. Please set VITE_TAVUS_API_KEY and VITE_TAVUS_REPLICA_ID in your environment.
                     </p>
                   </div>
                 </div>
@@ -230,6 +249,17 @@ const ChatPage = () => {
                     <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
                     <div className="flex-1">
                       <p className="text-red-300 text-sm mb-2">{connectionError}</p>
+                      {connectionError.includes('replica ID') && (
+                        <div className="text-red-200 text-xs space-y-1">
+                          <p>To fix this:</p>
+                          <ol className="list-decimal list-inside space-y-1 ml-2">
+                            <li>Go to your Tavus dashboard at https://tavusapi.com/dashboard</li>
+                            <li>Find your replica ID in the replicas section</li>
+                            <li>Add VITE_TAVUS_REPLICA_ID=your-replica-id to your .env file</li>
+                            <li>Restart the development server</li>
+                          </ol>
+                        </div>
+                      )}
                       {connectionError.includes('Invalid Tavus API key') && (
                         <p className="text-red-200 text-xs">
                           Please check your API key in the .env file. You can get a valid API key from the Tavus dashboard.
