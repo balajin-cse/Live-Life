@@ -52,7 +52,7 @@ const ChatPage = () => {
     toggleAudio,
     isConfigured,
   } = useTavusConversation({
-    replicaId: process.env.VITE_TAVUS_REPLICA_ID || 'default-replica',
+    replicaId: import.meta.env.VITE_TAVUS_REPLICA_ID || 'default-replica',
     autoStart: false,
     onMessage: (message) => {
       // Convert Tavus message to local message format
