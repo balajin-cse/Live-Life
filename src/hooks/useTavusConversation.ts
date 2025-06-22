@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { tavusService, TavusConversation, TavusMessage } from '../services/tavusService';
 
 interface UseTavusConversationOptions {
-  replicaId?: string;
+  personaId?: string; // Changed from replicaId to personaId
   autoStart?: boolean;
   onMessage?: (message: TavusMessage) => void;
   onError?: (error: string) => void;
@@ -19,7 +19,7 @@ export const useTavusConversation = (options: UseTavusConversationOptions = {}) 
   
   const conversationRef = useRef<TavusConversation | null>(null);
   const { 
-    replicaId = import.meta.env.VITE_TAVUS_REPLICA_ID || 'default-replica', 
+    personaId = import.meta.env.VITE_TAVUS_PERSONA_ID || 'default-persona', // Changed from replicaId
     autoStart = false, 
     onMessage, 
     onError 
@@ -34,8 +34,8 @@ export const useTavusConversation = (options: UseTavusConversationOptions = {}) 
       return;
     }
 
-    if (!replicaId || replicaId === 'default-replica') {
-      const errorMsg = 'Please set a valid replica ID in your .env file (VITE_TAVUS_REPLICA_ID).';
+    if (!personaId || personaId === 'default-persona') {
+      const errorMsg = 'Please set a valid persona ID in your .env file (VITE_TAVUS_PERSONA_ID).';
       setError(errorMsg);
       onError?.(errorMsg);
       return;
@@ -45,10 +45,10 @@ export const useTavusConversation = (options: UseTavusConversationOptions = {}) 
     setError(null);
 
     try {
-      console.log('Starting conversation with replica ID:', replicaId);
+      console.log('Starting conversation with persona ID:', personaId);
       
       const newConversation = await tavusService.createConversation({
-        replica_id: replicaId,
+        persona_id: personaId, // Changed from replica_id to persona_id
         conversation_name: 'Live Life Wellness Session',
         properties: {
           max_call_duration: 3600, // 1 hour
@@ -86,7 +86,7 @@ export const useTavusConversation = (options: UseTavusConversationOptions = {}) 
     } finally {
       setIsLoading(false);
     }
-  }, [replicaId, onMessage, onError]);
+  }, [personaId, onMessage, onError]);
 
   // Send a message to the AI
   const sendMessage = useCallback(async (content: string, context?: { mood?: string }) => {

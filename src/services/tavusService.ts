@@ -24,7 +24,7 @@ export interface TavusMessage {
 }
 
 export interface CreateConversationRequest {
-  replica_id: string;
+  persona_id: string; // Changed from replica_id to persona_id
   conversation_name?: string;
   callback_url?: string;
   properties?: {
@@ -66,7 +66,7 @@ class TavusService {
     };
   }
 
-  // Create a new conversation with AI replica
+  // Create a new conversation with AI persona
   async createConversation(request: CreateConversationRequest): Promise<TavusConversation> {
     if (!this.apiKey) {
       throw new Error('Tavus API key is not configured. Please set VITE_TAVUS_API_KEY in your environment variables.');
@@ -77,14 +77,14 @@ class TavusService {
       throw new Error('Please replace the placeholder API key in your .env file with your actual Tavus API key from https://tavusapi.com/dashboard');
     }
 
-    if (!request.replica_id || request.replica_id.includes('your_actual_replica_id_here') || request.replica_id === 'default-replica') {
-      throw new Error('Please set a valid replica ID in your .env file. Get your replica ID from your Tavus dashboard.');
+    if (!request.persona_id || request.persona_id.includes('your_actual_persona_id_here') || request.persona_id === 'default-persona') {
+      throw new Error('Please set a valid persona ID in your .env file. Get your persona ID from your Tavus dashboard.');
     }
 
     try {
-      // Use the correct Tavus API endpoint and format
+      // Use the correct Tavus API endpoint and format for personas
       const payload = {
-        replica_id: request.replica_id,
+        persona_id: request.persona_id, // Use persona_id instead of replica_id
         conversation_name: request.conversation_name || 'Live Life Wellness Session',
         callback_url: request.callback_url,
         properties: {
@@ -93,12 +93,12 @@ class TavusService {
           participant_absent_timeout: 300,
           enable_recording: false,
           apply_greenscreen: false,
-          language: 'en', // Use language code instead of full name
+          language: 'en', // Use language code
           ...request.properties
         }
       };
 
-      console.log('Creating Tavus conversation with payload:', payload);
+      console.log('Creating Tavus conversation with persona ID:', request.persona_id);
 
       const response = await axios.post(
         `${this.baseURL}/v2/conversations`,
@@ -118,21 +118,21 @@ class TavusService {
         const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Bad request';
         console.error('Tavus 400 error details:', error.response?.data);
         
-        if (errorMessage.toLowerCase().includes('replica') || errorMessage.toLowerCase().includes('not found')) {
-          throw new Error('Invalid replica ID. Please check that your replica ID exists in your Tavus dashboard and update the VITE_TAVUS_REPLICA_ID environment variable.');
+        if (errorMessage.toLowerCase().includes('persona') || errorMessage.toLowerCase().includes('not found')) {
+          throw new Error('Invalid persona ID. Please check that your persona ID exists in your Tavus dashboard and update the VITE_TAVUS_PERSONA_ID environment variable.');
         } else if (errorMessage.toLowerCase().includes('api key') || errorMessage.toLowerCase().includes('authentication')) {
           throw new Error('Invalid API key. Please check your VITE_TAVUS_API_KEY in the .env file.');
         } else if (errorMessage.toLowerCase().includes('quota') || errorMessage.toLowerCase().includes('limit')) {
           throw new Error('API quota exceeded. Please check your Tavus account limits.');
         } else {
-          throw new Error(`Tavus API error (400): ${errorMessage}. Please verify your API key and replica ID are correct.`);
+          throw new Error(`Tavus API error (400): ${errorMessage}. Please verify your API key and persona ID are correct.`);
         }
       } else if (error.response?.status === 401) {
         throw new Error('Invalid Tavus API key. Please check your VITE_TAVUS_API_KEY in the .env file.');
       } else if (error.response?.status === 403) {
         throw new Error('Access forbidden. Please check your Tavus API key permissions.');
       } else if (error.response?.status === 404) {
-        throw new Error('Replica not found. Please verify the replica ID exists in your Tavus account.');
+        throw new Error('Persona not found. Please verify the persona ID exists in your Tavus account.');
       } else if (error.response?.status === 429) {
         throw new Error('Rate limit exceeded. Please wait a moment and try again.');
       } else if (error.code === 'ECONNABORTED') {
@@ -239,8 +239,8 @@ class TavusService {
     }
   }
 
-  // Get available AI replicas
-  async getReplicas(): Promise<any[]> {
+  // Get available AI personas
+  async getPersonas(): Promise<any[]> {
     if (!this.apiKey) {
       console.warn('Tavus API key is not configured.');
       return [];
@@ -248,15 +248,15 @@ class TavusService {
 
     try {
       const response = await axios.get(
-        `${this.baseURL}/v2/replicas`,
+        `${this.baseURL}/v2/personas`,
         { 
           headers: this.getHeaders(),
           timeout: 30000
         }
       );
-      return response.data.replicas || response.data || [];
+      return response.data.personas || response.data || [];
     } catch (error: any) {
-      console.error('Error fetching Tavus replicas:', error);
+      console.error('Error fetching Tavus personas:', error);
       return [];
     }
   }
@@ -283,7 +283,7 @@ class TavusService {
     }
 
     try {
-      await this.getReplicas();
+      await this.getPersonas();
       return true;
     } catch (error) {
       return false;

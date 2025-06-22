@@ -35,7 +35,7 @@ const ChatPage = () => {
   const [connectionError, setConnectionError] = useState<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Initialize Tavus conversation with environment variables
+  // Initialize Tavus conversation with persona ID from environment variables
   const {
     conversation,
     messages: tavusMessages,
@@ -52,7 +52,7 @@ const ChatPage = () => {
     toggleAudio,
     isConfigured,
   } = useTavusConversation({
-    replicaId: import.meta.env.VITE_TAVUS_REPLICA_ID || 'default-replica',
+    personaId: import.meta.env.VITE_TAVUS_PERSONA_ID || 'default-persona', // Changed from replicaId
     autoStart: false,
     onMessage: (message) => {
       // Convert Tavus message to local message format
@@ -223,7 +223,7 @@ const ChatPage = () => {
                       </p>
                       <div className="text-yellow-200 text-xs space-y-1">
                         <p>1. Go to <a href="https://tavusapi.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline hover:text-yellow-100 inline-flex items-center gap-1">Tavus Dashboard <ExternalLink className="h-3 w-3" /></a></p>
-                        <p>2. Get your API key and replica ID</p>
+                        <p>2. Get your API key and persona ID</p>
                         <p>3. Update your .env file with the correct values</p>
                         <p>4. Restart the development server</p>
                       </div>
@@ -239,13 +239,13 @@ const ChatPage = () => {
                     <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
                     <div className="flex-1">
                       <p className="text-red-300 text-sm mb-2">{connectionError}</p>
-                      {(connectionError.includes('replica ID') || connectionError.includes('placeholder')) && (
+                      {(connectionError.includes('persona ID') || connectionError.includes('placeholder')) && (
                         <div className="text-red-200 text-xs space-y-1">
                           <p>To fix this:</p>
                           <ol className="list-decimal list-inside space-y-1 ml-2">
                             <li>Go to <a href="https://tavusapi.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline hover:text-red-100 inline-flex items-center gap-1">Tavus Dashboard <ExternalLink className="h-3 w-3" /></a></li>
-                            <li>Find your replica ID in the replicas section</li>
-                            <li>Update VITE_TAVUS_REPLICA_ID in your .env file</li>
+                            <li>Find your persona ID in the personas section</li>
+                            <li>Update VITE_TAVUS_PERSONA_ID in your .env file</li>
                             <li>Restart the development server</li>
                           </ol>
                         </div>
