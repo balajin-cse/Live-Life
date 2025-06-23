@@ -17,7 +17,6 @@ import {
   Square
 } from 'lucide-react'
 import TherapyVideoAgent from '../components/TherapyVideoAgent'
-import PersonaSelector from '../components/PersonaSelector'
 import ChatMessage from '../components/ChatMessage'
 import MoodSelector from '../components/MoodSelector'
 import { useTherapySession } from '../hooks/useTherapySession'
@@ -39,10 +38,8 @@ const ChatPage = () => {
 
   // Initialize therapy session
   const {
-    personas,
-    selectedPersona,
-    selectPersona,
-    loadPersonas,
+    persona,
+    loadPersona,
     conversation,
     messages: therapyMessages,
     isLoading,
@@ -95,12 +92,8 @@ const ChatPage = () => {
   }, [localMessages])
 
   const handleStartSession = async () => {
-    if (!selectedPersona) {
-      return
-    }
-    
     try {
-      await startTherapySession(selectedPersona.persona_id)
+      await startTherapySession()
     } catch (error: any) {
       console.error('Error starting therapy session:', error)
     }
@@ -133,9 +126,9 @@ const ChatPage = () => {
   }
 
   const handleRetryConnection = () => {
-    if (personas.length === 0) {
-      loadPersonas()
-    } else if (selectedPersona) {
+    if (!persona) {
+      loadPersona()
+    } else {
       handleStartSession()
     }
   }
@@ -158,19 +151,26 @@ const ChatPage = () => {
             transition={{ duration: 0.6 }}
             className="sticky top-20 space-y-4"
           >
-            {/* Persona Selector */}
-            <PersonaSelector
-              personas={personas}
-              selectedPersona={selectedPersona}
-              onPersonaSelect={selectPersona}
-              isLoading={isLoading && personas.length === 0}
-              error={error && personas.length === 0 ? error : null}
-            />
+            {/* Persona Info */}
+            {persona && (
+              <div className="glass-effect rounded-2xl p-4">
+                <div className="text-center">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 flex items-center justify-center mx-auto mb-3">
+                    <Brain className="h-6 w-6 text-white" />
+                  </div>
+                  <h3 className="text-white font-semibold text-lg mb-1">{persona.persona_name}</h3>
+                  <p className="text-gray-400 text-sm">AI Therapy Companion</p>
+                  {persona.context && (
+                    <p className="text-gray-500 text-xs mt-2">{persona.context}</p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Video Agent */}
             <TherapyVideoAgent
               conversationUrl={getConversationUrl()}
-              selectedPersona={selectedPersona}
+              selectedPersona={persona}
               isVideoEnabled={isVideoEnabled}
               isAudioEnabled={isAudioEnabled}
               isConnected={isConnected}
@@ -189,7 +189,7 @@ const ChatPage = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handleStartSession}
-                    disabled={isLoading || !isConfigured || !selectedPersona}
+                    disabled={isLoading || !isConfigured}
                     className="bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-6 py-3 rounded-full font-semibold transition-all duration-300 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                   >
                     <Play className="h-4 w-4" />
@@ -245,8 +245,8 @@ const ChatPage = () => {
                       <div className="text-yellow-200 text-xs space-y-1">
                         <p>1. Go to <a href="https://tavusapi.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline hover:text-yellow-100 inline-flex items-center gap-1">Tavus Dashboard <ExternalLink className="h-3 w-3" /></a></p>
                         <p>2. Get your API key from the API section</p>
-                        <p>3. Create therapy personas in the Personas section</p>
-                        <p>4. Update your .env file with VITE_TAVUS_API_KEY</p>
+                        <p>3. Get your persona ID from the Personas section</p>
+                        <p>4. Update your .env file with both values</p>
                         <p>5. Restart the development server</p>
                       </div>
                     </div>
@@ -261,7 +261,18 @@ const ChatPage = () => {
                     <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
                     <div className="flex-1">
                       <p className="text-red-300 text-sm mb-2">{error}</p>
-                      {error.includes('API key') && (
+                      {(error.includes('persona ID') || error.includes('Persona not found')) && (
+                        <div className="text-red-200 text-xs space-y-1">
+                          <p>To fix this:</p>
+                          <ol className="list-decimal list-inside space-y-1 ml-2">
+                            <li>Go to <a href="https://tavusapi.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline hover:text-red-100 inline-flex items-center gap-1">Tavus Dashboard <ExternalLink className="h-3 w-3" /></a></li>
+                            <li>Find your persona ID in the Personas section</li>
+                            <li>Update VITE_TAVUS_PERSONA_ID in your .env file</li>
+                            <li>Restart the development server</li>
+                          </ol>
+                        </div>
+                      )}
+                      {(error.includes('API key') || error.includes('Invalid Tavus API key')) && (
                         <div className="text-red-200 text-xs space-y-1">
                           <p>To fix this:</p>
                           <ol className="list-decimal list-inside space-y-1 ml-2">
@@ -313,8 +324,10 @@ const ChatPage = () => {
                     Welcome to Live Life Therapy
                   </h3>
                   <p className="text-gray-300 max-w-md">
-                    Select a therapy persona and start your session to begin your journey 
-                    toward better mental health and wellbeing with AI-powered support.
+                    {persona ? `Ready to start your therapy session with ${persona.persona_name}` : 'Loading your AI therapy companion...'}
+                  </p>
+                  <p className="text-gray-400 text-sm mt-2">
+                    Click "Start Therapy Session" to begin your journey toward better mental health and wellbeing.
                   </p>
                 </div>
               </div>
@@ -333,7 +346,7 @@ const ChatPage = () => {
                     Connecting to Your Therapy Session
                   </h3>
                   <p className="text-gray-300 max-w-md">
-                    {selectedPersona ? `Connecting with ${selectedPersona.persona_name}...` : 'Establishing connection...'}
+                    {persona ? `Connecting with ${persona.persona_name}...` : 'Establishing connection...'}
                   </p>
                 </div>
               </div>

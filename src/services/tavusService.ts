@@ -3,6 +3,7 @@ import axios from 'axios';
 // Tavus API configuration
 const TAVUS_API_BASE = 'https://tavusapi.com';
 const TAVUS_API_KEY = import.meta.env.VITE_TAVUS_API_KEY;
+const TAVUS_PERSONA_ID = import.meta.env.VITE_TAVUS_PERSONA_ID;
 
 export interface TavusPersona {
   persona_id: string;
@@ -37,14 +38,19 @@ export interface CreateConversationRequest {
 
 class TavusService {
   private apiKey: string;
+  private personaId: string;
   private baseURL: string;
 
   constructor() {
     this.apiKey = TAVUS_API_KEY || '';
+    this.personaId = TAVUS_PERSONA_ID || '';
     this.baseURL = TAVUS_API_BASE;
     
     if (!this.apiKey) {
       console.warn('Tavus API key not found. Please set VITE_TAVUS_API_KEY in your environment variables.');
+    }
+    if (!this.personaId) {
+      console.warn('Tavus Persona ID not found. Please set VITE_TAVUS_PERSONA_ID in your environment variables.');
     }
   }
 
@@ -55,63 +61,67 @@ class TavusService {
     };
   }
 
-  // Get available therapy personas
-  async getTherapyPersonas(): Promise<TavusPersona[]> {
-    if (!this.apiKey || !this.isConfigured()) {
-      console.warn('Tavus API key is not configured.');
-      return [];
+  // Get the configured persona details
+  async getPersonaDetails(): Promise<TavusPersona | null> {
+    if (!this.apiKey || !this.personaId || !this.isConfigured()) {
+      console.warn('Tavus service is not fully configured.');
+      return null;
     }
 
     try {
-      console.log('Fetching therapy personas from Tavus...');
+      console.log('Fetching persona details for ID:', this.personaId);
       const response = await axios.get(
-        `${this.baseURL}/v2/personas`,
+        `${this.baseURL}/v2/personas/${this.personaId}`,
         { 
           headers: this.getHeaders(),
           timeout: 30000
         }
       );
 
-      const personas = response.data.data || response.data.personas || response.data || [];
-      console.log('Fetched personas:', personas);
+      const persona = response.data;
+      console.log('Fetched persona details:', persona);
       
-      // Filter for therapy-related personas or return all if none specified
-      return personas.map((persona: any) => ({
-        persona_id: persona.persona_id || persona.id,
-        persona_name: persona.persona_name || persona.name || `Persona ${persona.persona_id}`,
+      return {
+        persona_id: persona.persona_id || persona.id || this.personaId,
+        persona_name: persona.persona_name || persona.name || 'AI Therapy Companion',
         system_prompt: persona.system_prompt,
         context: persona.context,
         default_replica_id: persona.default_replica_id
-      }));
+      };
     } catch (error: any) {
-      console.error('Error fetching therapy personas:', error);
+      console.error('Error fetching persona details:', error);
       
       if (error.response?.status === 401) {
         throw new Error('Invalid Tavus API key. Please check your VITE_TAVUS_API_KEY in the .env file.');
       } else if (error.response?.status === 403) {
         throw new Error('Access forbidden. Please check your Tavus API key permissions.');
+      } else if (error.response?.status === 404) {
+        throw new Error('Persona not found. Please check your VITE_TAVUS_PERSONA_ID in the .env file.');
       } else if (error.response?.data?.message) {
         console.error('API Error details:', error.response.data);
         throw new Error(`Tavus API error: ${error.response.data.message}`);
       } else {
-        throw new Error('Failed to fetch therapy personas. Please check your internet connection.');
+        // Return a default persona if we can't fetch details but have the ID
+        console.warn('Could not fetch persona details, using default');
+        return {
+          persona_id: this.personaId,
+          persona_name: 'AI Therapy Companion',
+          system_prompt: 'I am your AI therapy companion, here to provide support and guidance.',
+          context: 'Therapy and mental wellness support'
+        };
       }
     }
   }
 
-  // Create a therapy conversation with selected persona
-  async createTherapyConversation(personaId: string): Promise<TavusConversation> {
-    if (!this.apiKey || !this.isConfigured()) {
-      throw new Error('Tavus API key is not configured. Please set VITE_TAVUS_API_KEY in your environment variables.');
-    }
-
-    if (!personaId) {
-      throw new Error('Please select a therapy persona to start the session.');
+  // Create a therapy conversation with the configured persona
+  async createTherapyConversation(): Promise<TavusConversation> {
+    if (!this.apiKey || !this.personaId || !this.isConfigured()) {
+      throw new Error('Tavus service is not configured. Please check your API key and persona ID.');
     }
 
     try {
       const payload = {
-        persona_id: personaId,
+        persona_id: this.personaId,
         conversation_name: 'Live Life Therapy Session',
         properties: {
           max_call_duration: 3600, // 1 hour
@@ -123,7 +133,7 @@ class TavusService {
         }
       };
 
-      console.log('Creating therapy conversation with persona:', personaId);
+      console.log('Creating therapy conversation with persona:', this.personaId);
 
       const response = await axios.post(
         `${this.baseURL}/v2/conversations`,
@@ -138,7 +148,7 @@ class TavusService {
       
       const conversation = {
         ...response.data,
-        persona_id: personaId
+        persona_id: this.personaId
       };
 
       return conversation;
@@ -150,7 +160,7 @@ class TavusService {
         console.error('Tavus 400 error details:', error.response?.data);
         
         if (errorMessage.toLowerCase().includes('persona')) {
-          throw new Error('Invalid persona selected. Please try selecting a different therapy persona.');
+          throw new Error('Invalid persona ID. Please check your VITE_TAVUS_PERSONA_ID in the .env file.');
         } else if (errorMessage.toLowerCase().includes('quota') || errorMessage.toLowerCase().includes('limit')) {
           throw new Error('API quota exceeded. Please check your Tavus account limits.');
         } else {
@@ -161,7 +171,7 @@ class TavusService {
       } else if (error.response?.status === 403) {
         throw new Error('Access forbidden. Please check your Tavus API key permissions.');
       } else if (error.response?.status === 404) {
-        throw new Error('Persona not found. Please select a valid therapy persona.');
+        throw new Error('Persona not found. Please check your VITE_TAVUS_PERSONA_ID in the .env file.');
       } else if (error.response?.status === 429) {
         throw new Error('Rate limit exceeded. Please wait a moment and try again.');
       } else if (error.code === 'ECONNABORTED') {
@@ -236,9 +246,18 @@ class TavusService {
   // Check if service is properly configured
   isConfigured(): boolean {
     return !!this.apiKey && 
+           !!this.personaId &&
            !this.apiKey.includes('your_tavus_api_key_here') && 
            !this.apiKey.includes('your_actual_tavus_api_key_here') &&
-           this.apiKey.length > 10;
+           !this.personaId.includes('your_persona_id_here') &&
+           !this.personaId.includes('your_actual_persona_id_here') &&
+           this.apiKey.length > 10 &&
+           this.personaId.length > 10;
+  }
+
+  // Get the configured persona ID
+  getPersonaId(): string {
+    return this.personaId;
   }
 
   // Test API key validity
@@ -248,7 +267,7 @@ class TavusService {
     }
 
     try {
-      await this.getTherapyPersonas();
+      await this.getPersonaDetails();
       return true;
     } catch (error) {
       console.error('API key test failed:', error);

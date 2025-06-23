@@ -17,8 +17,7 @@ interface UseTherapySessionOptions {
 }
 
 export const useTherapySession = (options: UseTherapySessionOptions = {}) => {
-  const [personas, setPersonas] = useState<TavusPersona[]>([]);
-  const [selectedPersona, setSelectedPersona] = useState<TavusPersona | null>(null);
+  const [persona, setPersona] = useState<TavusPersona | null>(null);
   const [conversation, setConversation] = useState<TavusConversation | null>(null);
   const [messages, setMessages] = useState<TherapyMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -31,10 +30,10 @@ export const useTherapySession = (options: UseTherapySessionOptions = {}) => {
   const conversationRef = useRef<TavusConversation | null>(null);
   const { onMessage, onError, onSessionStart, onSessionEnd } = options;
 
-  // Load available therapy personas
-  const loadPersonas = useCallback(async () => {
+  // Load persona details
+  const loadPersona = useCallback(async () => {
     if (!tavusService.isConfigured()) {
-      const errorMsg = 'Tavus service is not configured. Please check your API key.';
+      const errorMsg = 'Tavus service is not configured. Please check your API key and persona ID.';
       setError(errorMsg);
       onError?.(errorMsg);
       return;
@@ -44,39 +43,35 @@ export const useTherapySession = (options: UseTherapySessionOptions = {}) => {
     setError(null);
 
     try {
-      console.log('Loading therapy personas...');
-      const fetchedPersonas = await tavusService.getTherapyPersonas();
-      console.log('Loaded personas:', fetchedPersonas);
+      console.log('Loading persona details...');
+      const personaDetails = await tavusService.getPersonaDetails();
+      console.log('Loaded persona:', personaDetails);
       
-      setPersonas(fetchedPersonas);
-      
-      // Auto-select first persona if available
-      if (fetchedPersonas.length > 0 && !selectedPersona) {
-        setSelectedPersona(fetchedPersonas[0]);
+      if (personaDetails) {
+        setPersona(personaDetails);
+      } else {
+        // Create a default persona if we can't fetch details
+        setPersona({
+          persona_id: tavusService.getPersonaId(),
+          persona_name: 'AI Therapy Companion',
+          system_prompt: 'I am your AI therapy companion, here to provide support and guidance.',
+          context: 'Therapy and mental wellness support'
+        });
       }
     } catch (err: any) {
-      console.error('Error loading personas:', err);
-      const errorMsg = err.message || 'Failed to load therapy personas';
+      console.error('Error loading persona:', err);
+      const errorMsg = err.message || 'Failed to load therapy persona';
       setError(errorMsg);
       onError?.(errorMsg);
     } finally {
       setIsLoading(false);
     }
-  }, [selectedPersona, onError]);
+  }, [onError]);
 
-  // Start therapy session with selected persona
-  const startTherapySession = useCallback(async (personaId?: string) => {
-    const targetPersonaId = personaId || selectedPersona?.persona_id;
-    
-    if (!targetPersonaId) {
-      const errorMsg = 'Please select a therapy persona to start the session.';
-      setError(errorMsg);
-      onError?.(errorMsg);
-      return;
-    }
-
+  // Start therapy session
+  const startTherapySession = useCallback(async () => {
     if (!tavusService.isConfigured()) {
-      const errorMsg = 'Tavus service is not configured. Please check your API key.';
+      const errorMsg = 'Tavus service is not configured. Please check your API key and persona ID.';
       setError(errorMsg);
       onError?.(errorMsg);
       return;
@@ -87,9 +82,9 @@ export const useTherapySession = (options: UseTherapySessionOptions = {}) => {
     setError(null);
 
     try {
-      console.log('Starting therapy session with persona:', targetPersonaId);
+      console.log('Starting therapy session...');
       
-      const newConversation = await tavusService.createTherapyConversation(targetPersonaId);
+      const newConversation = await tavusService.createTherapyConversation();
       console.log('Therapy session created:', newConversation);
 
       setConversation(newConversation);
@@ -100,8 +95,7 @@ export const useTherapySession = (options: UseTherapySessionOptions = {}) => {
       // Notify parent component
       onSessionStart?.(newConversation);
       
-      // Add initial AI greeting based on persona
-      const persona = personas.find(p => p.persona_id === targetPersonaId) || selectedPersona;
+      // Add initial AI greeting
       const initialMessage: TherapyMessage = {
         id: 'initial-' + Date.now(),
         type: 'ai',
@@ -121,7 +115,7 @@ export const useTherapySession = (options: UseTherapySessionOptions = {}) => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedPersona, personas, onMessage, onError, onSessionStart]);
+  }, [persona, onMessage, onError, onSessionStart]);
 
   // Send message in therapy session
   const sendMessage = useCallback(async (content: string, context?: { mood?: string }) => {
@@ -149,7 +143,7 @@ export const useTherapySession = (options: UseTherapySessionOptions = {}) => {
         const aiResponse: TherapyMessage = {
           id: 'ai-' + Date.now(),
           type: 'ai',
-          content: generateTherapyResponse(content, context?.mood, selectedPersona),
+          content: generateTherapyResponse(content, context?.mood, persona),
           timestamp: new Date(),
         };
 
@@ -165,7 +159,7 @@ export const useTherapySession = (options: UseTherapySessionOptions = {}) => {
       setIsLoading(false);
       throw err;
     }
-  }, [conversation, selectedPersona, onMessage, onError]);
+  }, [conversation, persona, onMessage, onError]);
 
   // Generate therapy-focused AI response
   const generateTherapyResponse = (userMessage: string, mood?: string, persona?: TavusPersona | null) => {
@@ -253,18 +247,12 @@ export const useTherapySession = (options: UseTherapySessionOptions = {}) => {
     setIsAudioEnabled(prev => !prev);
   }, []);
 
-  // Select persona
-  const selectPersona = useCallback((persona: TavusPersona) => {
-    setSelectedPersona(persona);
-    setError(null);
-  }, []);
-
-  // Load personas on mount
+  // Load persona on mount
   useEffect(() => {
-    if (tavusService.isConfigured() && personas.length === 0) {
-      loadPersonas();
+    if (tavusService.isConfigured() && !persona) {
+      loadPersona();
     }
-  }, [loadPersonas, personas.length]);
+  }, [loadPersona, persona]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -276,11 +264,9 @@ export const useTherapySession = (options: UseTherapySessionOptions = {}) => {
   }, []);
 
   return {
-    // Personas
-    personas,
-    selectedPersona,
-    selectPersona,
-    loadPersonas,
+    // Persona
+    persona,
+    loadPersona,
     
     // Session
     conversation,
