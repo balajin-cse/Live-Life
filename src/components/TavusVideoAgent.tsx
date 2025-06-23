@@ -63,7 +63,7 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
   const renderVideoContent = () => {
     if (error) {
       return (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-800 rounded-2xl">
           <div className="text-center p-6">
             <AlertCircle className="h-16 w-16 text-red-400 mx-auto mb-4" />
             <h3 className="text-white font-semibold mb-2">Connection Error</h3>
@@ -75,7 +75,7 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
 
     if (isLoading) {
       return (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-800 rounded-2xl">
           <div className="text-center">
             <Loader2 className="h-16 w-16 text-primary-400 mx-auto mb-4 animate-spin" />
             <p className="text-white font-medium">Connecting to AI Agent...</p>
@@ -87,7 +87,7 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
 
     if (!isVideoEnabled) {
       return (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-800 rounded-2xl">
           <div className="text-center">
             <CameraOff className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-400 font-medium">Video Disabled</p>
@@ -102,12 +102,12 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
     // Show embedded Tavus iframe when available
     if (conversationUrl && isConnected) {
       return (
-        <div className="absolute inset-0 bg-black">
-          {/* Tavus Video Iframe - Embedded directly */}
+        <div className="absolute inset-0 bg-black rounded-2xl overflow-hidden">
+          {/* Tavus Video Iframe */}
           <iframe
             ref={iframeRef}
             src={conversationUrl}
-            className="absolute inset-0 w-full h-full border-0"
+            className="absolute inset-0 w-full h-full border-0 rounded-2xl"
             allow="camera; microphone; autoplay; encrypted-media; fullscreen; display-capture"
             allowFullScreen
             sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-top-navigation-by-user-activation"
@@ -116,13 +116,14 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
             style={{
               backgroundColor: '#1e293b',
               minHeight: '100%',
-              minWidth: '100%'
+              minWidth: '100%',
+              borderRadius: '1rem'
             }}
           />
 
           {/* Loading overlay for iframe */}
           {!iframeLoaded && !iframeError && (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-800 z-10">
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-800 z-10 rounded-2xl">
               <div className="text-center">
                 <Loader2 className="h-12 w-12 text-primary-400 mx-auto mb-3 animate-spin" />
                 <p className="text-white text-sm">Loading video interface...</p>
@@ -133,7 +134,7 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
 
           {/* Error overlay for iframe */}
           {iframeError && (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-800 z-10">
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-800 z-10 rounded-2xl">
               <div className="text-center p-6">
                 <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-3" />
                 <p className="text-white text-sm mb-2">Video Interface Error</p>
@@ -153,13 +154,27 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
               </div>
             </div>
           )}
+
+          {/* Fullscreen button for iframe */}
+          {iframeLoaded && !iframeError && (
+            <button
+              onClick={() => {
+                if (iframeRef.current) {
+                  iframeRef.current.requestFullscreen?.();
+                }
+              }}
+              className="absolute top-4 right-4 z-20 p-2 bg-black/50 text-white/70 hover:text-white hover:bg-black/70 rounded transition-all duration-200"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
       );
     }
 
     // Fallback AI Avatar when no conversation URL
     return (
-      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
+      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl">
         <div className="relative">
           <motion.div
             animate={{
@@ -196,12 +211,12 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
   };
 
   return (
-    <div className="glass-effect rounded-2xl overflow-hidden relative">
-      <div className="aspect-[4/3] relative bg-gradient-to-br from-slate-800 to-slate-900">
+    <div className="glass-effect rounded-2xl overflow-hidden relative w-full">
+      <div className="aspect-[4/3] relative bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl overflow-hidden">
         {renderVideoContent()}
 
         {/* Status Indicators - Only show when not using iframe or iframe has loaded */}
-        {(!conversationUrl || !isConnected || iframeError) && (
+        {(!conversationUrl || !isConnected || iframeError || !iframeLoaded) && (
           <>
             <div className="absolute top-4 left-4 flex items-center space-x-2 z-20">
               <div className={`w-3 h-3 rounded-full ${
@@ -239,20 +254,6 @@ const TavusVideoAgent: React.FC<TavusVideoAgentProps> = ({
               </p>
             </div>
           </div>
-        )}
-
-        {/* Fullscreen button for iframe */}
-        {conversationUrl && isConnected && iframeLoaded && !iframeError && (
-          <button
-            onClick={() => {
-              if (iframeRef.current) {
-                iframeRef.current.requestFullscreen?.();
-              }
-            }}
-            className="absolute top-4 right-4 z-20 p-2 bg-black/50 text-white/70 hover:text-white hover:bg-black/70 rounded transition-all duration-200"
-          >
-            <Maximize2 className="h-4 w-4" />
-          </button>
         )}
       </div>
 
