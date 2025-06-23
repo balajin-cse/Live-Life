@@ -46,11 +46,18 @@ class TavusService {
     this.personaId = TAVUS_PERSONA_ID || '';
     this.baseURL = TAVUS_API_BASE;
     
+    console.log('🔧 Tavus Service initialized:', {
+      hasApiKey: !!this.apiKey && this.apiKey.length > 10,
+      hasPersonaId: !!this.personaId && this.personaId.length > 10,
+      apiKeyPreview: this.apiKey ? `${this.apiKey.substring(0, 8)}...` : 'Not set',
+      personaIdPreview: this.personaId ? `${this.personaId.substring(0, 8)}...` : 'Not set'
+    });
+    
     if (!this.apiKey) {
-      console.warn('Tavus API key not found. Please set VITE_TAVUS_API_KEY in your environment variables.');
+      console.warn('⚠️ Tavus API key not found. Please set VITE_TAVUS_API_KEY in your environment variables.');
     }
     if (!this.personaId) {
-      console.warn('Tavus Persona ID not found. Please set VITE_TAVUS_PERSONA_ID in your environment variables.');
+      console.warn('⚠️ Tavus Persona ID not found. Please set VITE_TAVUS_PERSONA_ID in your environment variables.');
     }
   }
 
@@ -64,12 +71,12 @@ class TavusService {
   // Get the configured persona details
   async getPersonaDetails(): Promise<TavusPersona | null> {
     if (!this.apiKey || !this.personaId || !this.isConfigured()) {
-      console.warn('Tavus service is not fully configured.');
+      console.warn('⚠️ Tavus service is not fully configured.');
       return null;
     }
 
     try {
-      console.log('Fetching persona details for ID:', this.personaId);
+      console.log('🔍 Fetching persona details for ID:', this.personaId);
       const response = await axios.get(
         `${this.baseURL}/v2/personas/${this.personaId}`,
         { 
@@ -79,7 +86,7 @@ class TavusService {
       );
 
       const persona = response.data;
-      console.log('Fetched persona details:', persona);
+      console.log('✅ Fetched persona details:', persona);
       
       return {
         persona_id: persona.persona_id || persona.id || this.personaId,
@@ -89,7 +96,7 @@ class TavusService {
         default_replica_id: persona.default_replica_id
       };
     } catch (error: any) {
-      console.error('Error fetching persona details:', error);
+      console.error('❌ Error fetching persona details:', error);
       
       if (error.response?.status === 401) {
         throw new Error('Invalid Tavus API key. Please check your VITE_TAVUS_API_KEY in the .env file.');
@@ -102,7 +109,7 @@ class TavusService {
         throw new Error(`Tavus API error: ${error.response.data.message}`);
       } else {
         // Return a default persona if we can't fetch details but have the ID
-        console.warn('Could not fetch persona details, using default');
+        console.warn('⚠️ Could not fetch persona details, using default');
         return {
           persona_id: this.personaId,
           persona_name: 'AI Therapy Companion',
@@ -133,7 +140,7 @@ class TavusService {
         }
       };
 
-      console.log('Creating therapy conversation with persona:', this.personaId);
+      console.log('🚀 Creating therapy conversation with payload:', payload);
 
       const response = await axios.post(
         `${this.baseURL}/v2/conversations`,
@@ -144,16 +151,19 @@ class TavusService {
         }
       );
 
-      console.log('Therapy conversation created successfully:', response.data);
+      console.log('✅ Therapy conversation created successfully:', response.data);
       
       const conversation = {
         ...response.data,
         persona_id: this.personaId
       };
 
+      // Log the conversation URL for debugging
+      console.log('🎥 Conversation URL:', conversation.conversation_url);
+
       return conversation;
     } catch (error: any) {
-      console.error('Error creating therapy conversation:', error);
+      console.error('❌ Error creating therapy conversation:', error);
       
       if (error.response?.status === 400) {
         const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Bad request';
@@ -191,7 +201,7 @@ class TavusService {
     }
 
     try {
-      console.log('Ending conversation:', conversationId);
+      console.log('🛑 Ending conversation:', conversationId);
       await axios.post(
         `${this.baseURL}/v2/conversations/${conversationId}/end`,
         {},
@@ -200,19 +210,19 @@ class TavusService {
           timeout: 30000
         }
       );
-      console.log('Conversation ended successfully');
+      console.log('✅ Conversation ended successfully');
     } catch (error: any) {
-      console.error('Error ending therapy conversation:', error);
+      console.error('❌ Error ending therapy conversation:', error);
       
       if (error.response?.status === 401) {
         throw new Error('Invalid Tavus API key.');
       } else if (error.response?.status === 404) {
-        console.warn('Conversation not found - may already be ended');
+        console.warn('⚠️ Conversation not found - may already be ended');
         // Don't throw error for 404 as conversation might already be ended
       } else if (error.response?.data?.message) {
         throw new Error(`Tavus API error: ${error.response.data.message}`);
       } else {
-        console.warn('Failed to end conversation, but continuing...');
+        console.warn('⚠️ Failed to end conversation, but continuing...');
       }
     }
   }
@@ -224,6 +234,7 @@ class TavusService {
     }
 
     try {
+      console.log('📊 Fetching conversation status:', conversationId);
       const response = await axios.get(
         `${this.baseURL}/v2/conversations/${conversationId}`,
         { 
@@ -231,9 +242,10 @@ class TavusService {
           timeout: 30000
         }
       );
+      console.log('✅ Conversation status:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching conversation status:', error);
+      console.error('❌ Error fetching conversation status:', error);
       
       if (error.response?.status === 404) {
         return null;
@@ -245,7 +257,7 @@ class TavusService {
 
   // Check if service is properly configured
   isConfigured(): boolean {
-    return !!this.apiKey && 
+    const configured = !!this.apiKey && 
            !!this.personaId &&
            !this.apiKey.includes('your_tavus_api_key_here') && 
            !this.apiKey.includes('your_actual_tavus_api_key_here') &&
@@ -253,6 +265,16 @@ class TavusService {
            !this.personaId.includes('your_actual_persona_id_here') &&
            this.apiKey.length > 10 &&
            this.personaId.length > 10;
+    
+    console.log('🔧 Service configuration check:', {
+      configured,
+      hasApiKey: !!this.apiKey,
+      hasPersonaId: !!this.personaId,
+      apiKeyLength: this.apiKey.length,
+      personaIdLength: this.personaId.length
+    });
+    
+    return configured;
   }
 
   // Get the configured persona ID
@@ -267,10 +289,12 @@ class TavusService {
     }
 
     try {
+      console.log('🧪 Testing API key...');
       await this.getPersonaDetails();
+      console.log('✅ API key test passed');
       return true;
     } catch (error) {
-      console.error('API key test failed:', error);
+      console.error('❌ API key test failed:', error);
       return false;
     }
   }
